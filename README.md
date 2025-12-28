@@ -24,6 +24,27 @@ A locally hosted, privacy-focused, uncensored roleplay chat application. Run pow
 *   **Infinite Chat**: Automatic context sliding lets you chat forever without crashing.
 *   **Persistent Memory**: Save and load your chat sessions at any time.
 
+## 🌟 New Features (Update 1.1)
+The app has been upgraded with advanced roleplay features to make your characters feel truly alive!
+
+### 🎭 Dynamic Expressions
+Characters now react visually to the conversation!
+*   **Mood Awareness**: The AI automatically detects if it's happy, sad, angry, or blushing.
+*   **Sprite Switching**: The avatar changes instantly to match the mood (e.g., smiling when complimented, frowning when insulted).
+*   **Customizable**: Map your own image files to specific emotions in the Character Editor.
+
+### 📔 "Living Memory" Diary
+Solve the "goldfish memory" problem with the new Diary System.
+*   **Episodic Memory**: The AI writes diary entries about your adventures from *its* perspective.
+*   **Context Injection**: Recent diary entries are automatically fed into new chat sessions, so the character **remembers what you did yesterday**.
+*   **End of Day**: Click "End Day & Write Diary" to generate a summary of your session.
+
+### 📖 Lorebook (World Info)
+Build a deep, consistent world.
+*   **Keyword Triggering**: Define keywords (e.g., "The Crystal Kingdom", "Excalibur").
+*   **Smart Injection**: When you mention a keyword, the app secretly injects the description into the AI's mind.
+*   **No Confusion**: Keeps the AI on track with complex lore without using up all its memory.
+
 ---
 
 ## 🚀 Installation (Windows)
@@ -50,12 +71,14 @@ A locally hosted, privacy-focused, uncensored roleplay chat application. Run pow
 *   **Upload Images**:
     *   Upload an Avatar image. Copy the filename it gives you into the JSON map (e.g., `"happy": "my_image.png"`).
     *   Upload a Background image and paste the filename into the "Background Image" field.
+*   **Add World Info**: Use the Lorebook section to add important keywords and their descriptions.
 *   Click **"Create Character"**.
 
 ### 2. Chatting
 *   Type your message in the bottom box.
 *   **Regenerate**: Click the **🔄** button to redo the last AI response.
 *   **Edit**: Click the **✏️** pencil icon next to any message to change the text.
+*   **End Day**: When you're done, scroll down to the "Diary" section and click "End Day & Write Diary" to save the memory.
 
 ### 3. Saving & Loading
 *   Go to the **"💾 Memory"** section in the sidebar.

@@ -248,7 +248,9 @@ with st.sidebar:
         mode = st.radio("Mode", ["Edit Current", "Create New"], horizontal=True)
         
         if mode == "Edit Current":
-            if st.session_state.current_char:
+            if not st.session_state.current_char:
+                st.info("Select a character first.")
+            else:
                 current_config = st.session_state.char_mgr.character_config
                 edit_name = st.text_input("Name", value=current_config.get("name", ""), disabled=True)
                 edit_desc = st.text_area("Description", value=current_config.get("description", ""), height=100)
@@ -279,7 +281,8 @@ with st.sidebar:
                             "scenario": edit_scenario,
                             "example_dialogue": edit_dialogue,
                             "avatar_emotion_map": new_map,
-                            "background_image": edit_bg
+                            "background_image": edit_bg,
+                            "lorebook": current_config.get("lorebook", {})
                         }
                         st.session_state.char_mgr.save_character(edit_name, new_config)
                         st.success(f"Updated {edit_name}!")
@@ -287,13 +290,58 @@ with st.sidebar:
                         # Reload to apply immediately
                         st.session_state.char_mgr.load_character(edit_name)
                         if st.session_state.waifu:
-                             st.session_state.waifu.set_persona(edit_name, edit_desc, edit_scenario, edit_dialogue)
+                             st.session_state.waifu.set_persona(
+                                 edit_name, 
+                                 edit_desc, 
+                                 edit_scenario, 
+                                 edit_dialogue,
+                                 user_name=st.session_state.user_persona["name"],
+                                 lorebook=new_config.get("lorebook", {}),
+                                 past_events=st.session_state.char_mgr.get_recent_diary_entries()
+                             )
                         st.rerun()
                     except json.JSONDecodeError:
                         st.error("Invalid JSON in Avatar Map")
-            else:
-                st.info("Select a character first.")
                 
+                # --- Lorebook Editor ---
+                st.divider()
+                st.subheader("📖 World Info (Lorebook)")
+                st.info("Keywords trigger the AI to remember specific details.")
+                
+                # Add New Entry
+                col_key, col_content, col_add = st.columns([1, 2, 0.5])
+                new_lore_key = col_key.text_input("New Keyword", placeholder="e.g. Excalibur")
+                new_lore_content = col_content.text_input("Description", placeholder="A sword of light...")
+                if col_add.button("➕"):
+                    if new_lore_key and new_lore_content:
+                        st.session_state.char_mgr.update_lore_entry(new_lore_key, new_lore_content)
+                        st.success(f"Added '{new_lore_key}'")
+                        st.rerun()
+
+                # List Entries
+                lorebook = current_config.get("lorebook", {})
+                if lorebook:
+                    for key, content in lorebook.items():
+                        c1, c2, c3 = st.columns([1, 2, 0.5])
+                        c1.text(key)
+                        c2.text(content)
+                        if c3.button("🗑️", key=f"del_lore_{key}"):
+                            st.session_state.char_mgr.delete_lore_entry(key)
+                            st.rerun()
+                else:
+                    st.caption("No lore entries yet.")
+            
+                # --- Diary (Read Only in Editor) ---
+                st.divider()
+                st.subheader("📔 Diary Memories")
+                diary_entries = st.session_state.char_mgr.get_all_diary_entries()
+                if diary_entries:
+                    for entry in diary_entries:
+                        with st.expander(f"{entry['date']}"):
+                            st.write(entry['content'])
+                else:
+                    st.caption("No diary entries yet.")
+        
         else: # Create New
             new_char_name = st.text_input("New Character Name")
             new_desc = st.text_area("Description", placeholder="She is a...", height=100)
@@ -359,6 +407,26 @@ with st.sidebar:
     else:
         st.info("No saved sessions for this character.")
 
+    # --- Diary Actions ---
+    st.divider()
+    st.subheader("📔 Diary")
+    if st.button("End Day & Write Diary"):
+        if st.session_state.waifu and st.session_state.messages:
+            with st.spinner("Writing diary entry..."):
+                entry = st.session_state.waifu.generate_diary_entry(
+                    st.session_state.current_char, 
+                    st.session_state.user_persona["name"]
+                )
+                if entry:
+                    st.session_state.char_mgr.save_diary_entry(entry)
+                    st.success("Diary entry written!")
+                    # Clear chat logic? Maybe just notify.
+                    st.info("The day has ended. You can clear the chat to start a new day.")
+                else:
+                    st.error("Could not generate diary (history empty?)")
+        else:
+            st.warning("Start a conversation first.")
+
     # --- Generation Settings ---
     st.divider()
     st.subheader("🧠 Brain Params")
@@ -405,7 +473,10 @@ with col2:
                         config["name"], 
                         config["description"], 
                         config["scenario"], 
-                        config["example_dialogue"]
+                        config["example_dialogue"],
+                        user_name=st.session_state.user_persona["name"],
+                        lorebook=config.get("lorebook", {}),
+                        past_events=st.session_state.char_mgr.get_recent_diary_entries()
                     )
                     st.success("Connected!")
                     st.rerun()
@@ -555,7 +626,12 @@ with col2:
                      response_placeholder.markdown(full_response + "▌")
 
             # Final cleanup
-            final_thought, final_speech = st.session_state.waifu.get_last_thought_and_response()
+            final_thought, final_speech, final_mood = st.session_state.waifu.get_last_thought_and_response()
+            
+            # Update Emotion based on Model Output
+            if final_mood and final_mood != "neutral":
+                 st.session_state.current_emotion = final_mood
+                 
             response_placeholder.markdown(final_speech)
             st.session_state.messages.append({"role": "assistant", "content": full_response})
             st.rerun() # Rerun to update the avatar in the left column

@@ -168,3 +168,89 @@ class CharacterManager:
                  return potential_path
         
         return None
+
+    def get_lorebook(self):
+        """Returns the lorebook dictionary from the config."""
+        if not self.character_config:
+            return {}
+        return self.character_config.get("lorebook", {})
+
+    def update_lore_entry(self, keyword, content):
+        """Adds or updates a lorebook entry."""
+        if not self.character_config:
+            return False
+            
+        if "lorebook" not in self.character_config:
+            self.character_config["lorebook"] = {}
+            
+        self.character_config["lorebook"][keyword] = content
+        return self.save_character(self.current_character, self.character_config)
+
+    def delete_lore_entry(self, keyword):
+        """Deletes a lorebook entry."""
+        if not self.character_config or "lorebook" not in self.character_config:
+            return False
+            
+        if keyword in self.character_config["lorebook"]:
+            del self.character_config["lorebook"][keyword]
+            return self.save_character(self.current_character, self.character_config)
+        return False
+
+    def save_diary_entry(self, entry_text):
+        """Saves a new diary entry for the current character."""
+        if not self.current_character:
+            return False
+            
+        char_dir = os.path.join(CHARACTERS_DIR, self.current_character)
+        diary_path = os.path.join(char_dir, "diary.json")
+        
+        entries = []
+        if os.path.exists(diary_path):
+            with open(diary_path, "r", encoding="utf-8") as f:
+                entries = json.load(f)
+                
+        new_entry = {
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "content": entry_text
+        }
+        entries.append(new_entry)
+        
+        with open(diary_path, "w", encoding="utf-8") as f:
+            json.dump(entries, f, indent=2, ensure_ascii=False)
+            
+        return True
+
+    def get_recent_diary_entries(self, limit=3):
+        """Returns the most recent diary entries formatted for context injection."""
+        if not self.current_character:
+            return []
+            
+        char_dir = os.path.join(CHARACTERS_DIR, self.current_character)
+        diary_path = os.path.join(char_dir, "diary.json")
+        
+        if not os.path.exists(diary_path):
+            return []
+            
+        with open(diary_path, "r", encoding="utf-8") as f:
+            entries = json.load(f)
+            
+        # Get last N entries
+        recent = entries[-limit:]
+        return recent
+
+    def get_all_diary_entries(self):
+        """Returns all diary entries."""
+        if not self.current_character:
+            return []
+            
+        char_dir = os.path.join(CHARACTERS_DIR, self.current_character)
+        diary_path = os.path.join(char_dir, "diary.json")
+        
+        if not os.path.exists(diary_path):
+            return []
+            
+        with open(diary_path, "r", encoding="utf-8") as f:
+            entries = json.load(f)
+        
+        # Sort by date descending (newest first)
+        return sorted(entries, key=lambda x: x['date'], reverse=True)
