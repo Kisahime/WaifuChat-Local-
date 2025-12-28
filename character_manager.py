@@ -254,3 +254,101 @@ class CharacterManager:
         
         # Sort by date descending (newest first)
         return sorted(entries, key=lambda x: x['date'], reverse=True)
+
+    def import_character_card(self, file_obj):
+        """Imports a V2 Character Card (PNG) or JSON."""
+        from PIL import Image
+        import base64
+        
+        filename = file_obj.name
+        content = file_obj.read()
+        
+        card_data = None
+        
+        # 1. Try JSON import
+        if filename.endswith(".json"):
+            try:
+                data = json.loads(content)
+                # Check if it's V2 spec (data inside 'data' or 'spec' or flat)
+                if "data" in data:
+                    card_data = data["data"]
+                else:
+                    card_data = data
+            except:
+                pass
+                
+        # 2. Try PNG import (V2 Spec uses tEXt chunk 'chara')
+        elif filename.endswith(".png"):
+            try:
+                img = Image.open(file_obj)
+                img.load() # Load metadata
+                
+                # Check for V2 'chara' chunk
+                if "chara" in img.info:
+                    # It's base64 encoded string
+                    raw_data = base64.b64decode(img.info["chara"]).decode("utf-8")
+                    data = json.loads(raw_data)
+                    if "data" in data:
+                        card_data = data["data"]
+                    else:
+                        card_data = data
+                        
+                # Check for V1 'ccv3' or similar (TavernAI) - simplistic fallback
+                # ... skipping complex V1 parsing for now, focusing on V2
+            except Exception as e:
+                print(f"Error parsing PNG: {e}")
+                pass
+                
+        if not card_data:
+            return None, "Could not parse character card."
+            
+        # Map to WaifuChat format
+        # V2 Spec: name, description, personality, scenario, first_mes, mes_example
+        
+        new_name = card_data.get("name", "Unknown")
+        # Combine personality and description for our single 'description' field
+        desc = card_data.get("description", "")
+        pers = card_data.get("personality", "")
+        full_desc = f"{desc}\n\nPersonality: {pers}".strip()
+        
+        scenario = card_data.get("scenario", "")
+        # dialogue examples
+        dialogue = card_data.get("mes_example", "")
+        
+        # Save Avatar Image
+        # If imported from PNG, save that PNG
+        # If JSON, we don't have an image, use default
+        
+        char_dir = os.path.join(CHARACTERS_DIR, new_name)
+        if not os.path.exists(char_dir):
+            os.makedirs(char_dir)
+            
+        avatars_dir = os.path.join(char_dir, "avatars")
+        if not os.path.exists(avatars_dir):
+            os.makedirs(avatars_dir)
+            
+        avatar_filename = "neutral.png"
+        
+        if filename.endswith(".png"):
+            # Save the original card as the avatar
+            # Reset file pointer
+            file_obj.seek(0)
+            with open(os.path.join(avatars_dir, avatar_filename), "wb") as f:
+                f.write(file_obj.read())
+        else:
+            # No image provided
+            avatar_filename = "👤" 
+            
+        # Create Config
+        config = {
+            "name": new_name,
+            "description": full_desc,
+            "scenario": scenario,
+            "example_dialogue": dialogue,
+            "avatar_emotion_map": {
+                "neutral": avatar_filename
+            }
+        }
+        
+        self.save_character(new_name, config)
+        return new_name, None

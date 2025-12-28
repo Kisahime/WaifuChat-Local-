@@ -45,6 +45,13 @@ Build a deep, consistent world.
 *   **Smart Injection**: When you mention a keyword, the app secretly injects the description into the AI's mind.
 *   **No Confusion**: Keeps the AI on track with complex lore without using up all its memory.
 
+## 🔊 Update 1.2: Voice & Compatibility
+*   **Text-to-Speech (TTS)**: The waifu now speaks to you!
+    *   **High Quality**: Uses natural-sounding Neural voices (like Aria, Guy, Jenny).
+    *   **Customizable**: Adjust the **Pitch** (Hz) and **Speed** (%) to create unique voices for each character.
+*   **Character Card Import**:
+    *   Easily import characters from other sites (Chub.ai, SillyTavern) by dragging and dropping **V2 Character Cards (PNG)** or JSON files.
+
 ---
 
 ## 🚀 Installation (Windows)

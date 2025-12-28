@@ -6,6 +6,7 @@ import sys
 import json
 from brain import WaifuAI
 from character_manager import CharacterManager
+from voice_manager import VoiceManager
 
 # Suppress Windows Error 6 on Ctrl+C
 def signal_handler(sig, frame):
@@ -159,6 +160,8 @@ if "waifu" not in st.session_state:
     st.session_state.waifu = None
 if "char_mgr" not in st.session_state:
     st.session_state.char_mgr = CharacterManager()
+if "voice_mgr" not in st.session_state:
+    st.session_state.voice_mgr = VoiceManager()
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "current_char" not in st.session_state:
@@ -169,6 +172,8 @@ if "editor_mode" not in st.session_state:
     st.session_state.editor_mode = "edit" # 'edit' or 'create'
 if "should_regenerate" not in st.session_state:
     st.session_state.should_regenerate = False
+if "tts_enabled" not in st.session_state:
+    st.session_state.tts_enabled = False
 
 if "user_persona" not in st.session_state:
     st.session_state.user_persona = {"name": "User", "description": ""}
@@ -245,9 +250,22 @@ with st.sidebar:
 
     # --- Character Editor ---
     with st.expander("🛠️ Character Editor"):
-        mode = st.radio("Mode", ["Edit Current", "Create New"], horizontal=True)
+        mode = st.radio("Mode", ["Edit Current", "Create New", "Import Card"], horizontal=True)
         
-        if mode == "Edit Current":
+        if mode == "Import Card":
+            st.info("Import a V2 Character Card (PNG) or JSON.")
+            uploaded_card = st.file_uploader("Upload Card", type=["png", "json"])
+            if uploaded_card:
+                if st.button("Import"):
+                    name, error = st.session_state.char_mgr.import_character_card(uploaded_card)
+                    if name:
+                        st.success(f"Imported {name} successfully!")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error(f"Import failed: {error}")
+
+        elif mode == "Edit Current":
             if not st.session_state.current_char:
                 st.info("Select a character first.")
             else:
@@ -435,6 +453,34 @@ with st.sidebar:
     min_p = st.slider("Min-P", 0.0, 1.0, 0.05)
     top_k = st.slider("Top-K", 0, 100, 40)
     
+    st.divider()
+    st.subheader("🔊 Audio")
+    st.session_state.tts_enabled = st.checkbox("Enable Voice (TTS)", value=st.session_state.tts_enabled)
+    
+    if st.session_state.tts_enabled:
+        # Voice Settings
+        voices = st.session_state.voice_mgr.VOICES
+        voice_names = list(voices.keys())
+        default_voice_idx = 0
+        
+        # Select Box
+        selected_voice_name = st.selectbox("Voice", voice_names, index=default_voice_idx)
+        st.session_state.tts_voice = voices[selected_voice_name]
+        
+        # Pitch and Rate
+        col_p, col_r = st.columns(2)
+        with col_p:
+            pitch_val = st.slider("Pitch (Hz)", -50, 50, 0, step=5)
+            st.session_state.tts_pitch = f"{pitch_val:+d}Hz"
+        with col_r:
+            rate_val = st.slider("Speed (%)", -50, 50, 0, step=10)
+            st.session_state.tts_rate = f"{rate_val:+d}%"
+    else:
+        # Defaults if disabled to avoid errors
+        st.session_state.tts_voice = "en-US-AriaNeural"
+        st.session_state.tts_pitch = "+0Hz"
+        st.session_state.tts_rate = "+0%"
+    
     # Clear Chat
     if st.button("Reset Chat"):
         st.session_state.messages = []
@@ -524,6 +570,17 @@ with col2:
                         with st.expander("💭 Inner Thoughts"):
                             st.markdown(f"*{thought}*")
                     st.markdown(speech)
+                    
+                    # Audio Playback (if saved in session state or just generated)
+                    if "audio" in message:
+                        import base64
+                        # Decode base64 to bytes for st.audio
+                        try:
+                            audio_bytes = base64.b64decode(message["audio"])
+                            st.audio(audio_bytes, format="audio/mp3")
+                        except Exception:
+                            # Fallback if it was somehow stored raw or corrupted
+                            pass
                     
                     # Edit / Regenerate Tools
                     col_tools1, col_tools2, col_tools3 = st.columns([1, 1, 8])
@@ -633,5 +690,30 @@ with col2:
                  st.session_state.current_emotion = final_mood
                  
             response_placeholder.markdown(final_speech)
-            st.session_state.messages.append({"role": "assistant", "content": full_response})
+            
+            # Audio Generation
+            audio_b64 = None
+            if st.session_state.tts_enabled:
+                with st.spinner("Generating Voice..."):
+                    # Use final_speech (stripped of thoughts)
+                    audio_b64 = st.session_state.voice_mgr.get_audio_base64(
+                        final_speech,
+                        voice=st.session_state.get("tts_voice", "en-US-AriaNeural"),
+                        pitch=st.session_state.get("tts_pitch", "+0Hz"),
+                        rate=st.session_state.get("tts_rate", "+0%")
+                    )
+                    if audio_b64:
+                        import base64
+                        # Decode base64 to bytes for st.audio
+                        try:
+                            audio_bytes = base64.b64decode(audio_b64)
+                            st.audio(audio_bytes, format="audio/mp3")
+                        except Exception:
+                            pass
+            
+            msg_data = {"role": "assistant", "content": full_response}
+            if audio_b64:
+                msg_data["audio"] = audio_b64
+                
+            st.session_state.messages.append(msg_data)
             st.rerun() # Rerun to update the avatar in the left column
