@@ -315,7 +315,9 @@ with st.sidebar:
                                  edit_dialogue,
                                  user_name=st.session_state.user_persona["name"],
                                  lorebook=new_config.get("lorebook", {}),
-                                 past_events=st.session_state.char_mgr.get_recent_diary_entries()
+                                 past_events=st.session_state.char_mgr.get_recent_diary_entries(),
+                                 stats=st.session_state.char_mgr.get_stats(),
+                                 location=st.session_state.char_mgr.get_location()
                              )
                         st.rerun()
                     except json.JSONDecodeError:
@@ -480,6 +482,43 @@ with st.sidebar:
         st.session_state.tts_voice = "en-US-AriaNeural"
         st.session_state.tts_pitch = "+0Hz"
         st.session_state.tts_rate = "+0%"
+        
+    # --- Status & Living World (v1.3) ---
+    st.divider()
+    st.subheader("💗 Status")
+    
+    # Get stats
+    current_stats = st.session_state.char_mgr.get_stats()
+    
+    # Affection Bar
+    st.write("Affection")
+    st.progress(current_stats.get("affection", 0) / 100.0)
+    
+    # Energy Bar
+    st.write("Energy")
+    st.progress(current_stats.get("energy", 100) / 100.0)
+    
+    # Location
+    st.subheader("🗺️ Location")
+    current_loc = st.session_state.char_mgr.get_location()
+    
+    locations = ["Home", "Park", "Cafe", "Beach", "School", "Dungeon"]
+    new_loc = st.selectbox("Travel to:", locations, index=locations.index(current_loc) if current_loc in locations else 0)
+    
+    if new_loc != current_loc:
+        st.session_state.char_mgr.set_location(new_loc)
+        # Add a system message about travel
+        st.session_state.messages.append({"role": "system", "content": f"*You traveled to the {new_loc}.*"})
+        st.rerun()
+        
+    # Time Control
+    st.subheader("🕰️ Time")
+    if st.button("Wait 1 Hour (+Energy)"):
+        # Restore energy
+        st.session_state.char_mgr.update_stats(energy_delta=10)
+        st.success("You rested for a while.")
+        time.sleep(0.5)
+        st.rerun()
     
     # Clear Chat
     if st.button("Reset Chat"):
@@ -522,7 +561,9 @@ with col2:
                         config["example_dialogue"],
                         user_name=st.session_state.user_persona["name"],
                         lorebook=config.get("lorebook", {}),
-                        past_events=st.session_state.char_mgr.get_recent_diary_entries()
+                        past_events=st.session_state.char_mgr.get_recent_diary_entries(),
+                        stats=st.session_state.char_mgr.get_stats(),
+                        location=st.session_state.char_mgr.get_location()
                     )
                     st.success("Connected!")
                     st.rerun()
@@ -684,6 +725,10 @@ with col2:
 
             # Final cleanup
             final_thought, final_speech, final_mood = st.session_state.waifu.get_last_thought_and_response()
+            
+            # Analyze Sentiment & Update Stats
+            aff_delta, en_delta = st.session_state.waifu.analyze_sentiment(user_input)
+            new_stats = st.session_state.char_mgr.update_stats(aff_delta, en_delta)
             
             # Update Emotion based on Model Output
             if final_mood and final_mood != "neutral":

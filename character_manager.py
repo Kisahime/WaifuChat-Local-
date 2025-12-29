@@ -169,6 +169,37 @@ class CharacterManager:
         
         return None
 
+    def update_stats(self, affection_delta=0, energy_delta=0):
+        """Updates character stats."""
+        if not self.character_config:
+            return
+            
+        if "stats" not in self.character_config:
+            self.character_config["stats"] = {"affection": 0, "energy": 100}
+            
+        stats = self.character_config["stats"]
+        stats["affection"] = max(0, min(100, stats.get("affection", 0) + affection_delta))
+        stats["energy"] = max(0, min(100, stats.get("energy", 100) + energy_delta))
+        
+        self.save_character(self.current_character, self.character_config)
+        return stats
+
+    def get_stats(self):
+        if not self.character_config:
+            return {"affection": 0, "energy": 100}
+        return self.character_config.get("stats", {"affection": 0, "energy": 100})
+
+    def set_location(self, location_name):
+        if not self.character_config:
+            return
+        self.character_config["current_location"] = location_name
+        self.save_character(self.current_character, self.character_config)
+        
+    def get_location(self):
+        if not self.character_config:
+            return "Home"
+        return self.character_config.get("current_location", "Home")
+
     def get_lorebook(self):
         """Returns the lorebook dictionary from the config."""
         if not self.character_config:

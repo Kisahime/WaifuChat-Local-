@@ -23,7 +23,7 @@ class WaifuAI:
         self.system_prompt = ""
         self.lorebook = {}
 
-    def set_persona(self, name, description, scenario, example_dialogue, user_name="User", lorebook=None, past_events=None):
+    def set_persona(self, name, description, scenario, example_dialogue, user_name="User", lorebook=None, past_events=None, stats=None, location="Home"):
         self.lorebook = lorebook or {}
         
         # Format past events (diary entries)
@@ -33,6 +33,11 @@ class WaifuAI:
             for entry in past_events:
                 past_events_text += f"- [{entry['date']}] {entry['content']}\n"
         
+        # Format Stats
+        stats_text = ""
+        if stats:
+            stats_text = f"\n### Current Status\nLocation: {location}\nAffection: {stats.get('affection', 0)}/100\nEnergy: {stats.get('energy', 100)}/100\n"
+        
         # Inject current time
         from datetime import datetime
         current_time = datetime.now().strftime("%Y-%m-%d %I:%M %p")
@@ -41,6 +46,7 @@ class WaifuAI:
 Currently your role is {name}, which is described in detail below.
 As {name}, continue the exchange with {user_name}.
 Current Date/Time: {current_time}
+{stats_text}
 
 ### Character Description
 {description}
@@ -57,6 +63,29 @@ Current Date/Time: {current_time}
 ### Example Dialogue
 {example_dialogue}
 """
+
+    def analyze_sentiment(self, user_input):
+        """Analyzes sentiment to update stats. Returns (affection_delta, energy_delta)."""
+        # Simple keyword-based heuristic for speed (saving LLM calls)
+        # In a larger system, we'd ask the LLM.
+        
+        text = user_input.lower()
+        aff_delta = 0
+        
+        # Positive keywords
+        if any(w in text for w in ["love", "cute", "beautiful", "thanks", "thank you", "great", "good", "happy"]):
+            aff_delta += 1
+        if any(w in text for w in ["date", "kiss", "hug", "marry"]):
+            aff_delta += 2
+            
+        # Negative keywords
+        if any(w in text for w in ["hate", "stupid", "ugly", "bad", "stop", "worst"]):
+            aff_delta -= 2
+            
+        # Energy cost for talking
+        energy_delta = -1 
+        
+        return aff_delta, energy_delta
 
     def generate_diary_entry(self, character_name, user_name):
         """Generates a diary entry based on the current history."""

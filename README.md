@@ -52,6 +52,18 @@ Build a deep, consistent world.
 *   **Character Card Import**:
     *   Easily import characters from other sites (Chub.ai, SillyTavern) by dragging and dropping **V2 Character Cards (PNG)** or JSON files.
 
+## 🌍 Update 1.3: The Living World
+The app is now a lightweight Life Sim!
+*   **Status System**:
+    *   **Affection**: Being nice increases affection, insults decrease it.
+    *   **Energy**: Talking drains energy. If it hits 0, they might get tired.
+*   **Locations**:
+    *   Travel to different places (Park, Cafe, Beach, etc.).
+    *   The AI knows where you are and changes the context of the conversation.
+*   **Time & Routine**:
+    *   Real-time clock awareness.
+    *   **"Wait 1 Hour"**: Button to advance time and restore Energy.
+
 ---
 
 ## 🚀 Installation (Windows)
