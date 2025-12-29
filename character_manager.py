@@ -154,10 +154,22 @@ class CharacterManager:
         return filename
 
     def get_background_image(self):
-        """Returns the background image path if configured."""
+        """Returns the background image path based on current location."""
         if not self.character_config:
             return None
+            
+        # 1. Try Location-specific background
+        location = self.get_location()
+        loc_images = self.character_config.get("location_images", {})
         
+        if location in loc_images:
+            bg_file = loc_images[location]
+            if self.current_character:
+                potential_path = os.path.join(CHARACTERS_DIR, self.current_character, "avatars", bg_file)
+                if os.path.exists(potential_path):
+                    return potential_path
+
+        # 2. Fallback to default background
         bg_file = self.character_config.get("background_image")
         if not bg_file:
             return None
@@ -168,6 +180,30 @@ class CharacterManager:
                  return potential_path
         
         return None
+
+    def set_location_image(self, location, filename):
+        """Sets the background image for a specific location."""
+        if not self.character_config:
+            return
+            
+        if "location_images" not in self.character_config:
+            self.character_config["location_images"] = {}
+            
+        self.character_config["location_images"][location] = filename
+        self.save_character(self.current_character, self.character_config)
+
+    def set_time(self, hour):
+        """Sets the current time (0-23)."""
+        if not self.character_config:
+            return
+        self.character_config["current_time"] = hour % 24
+        self.save_character(self.current_character, self.character_config)
+
+    def get_time(self):
+        """Returns current time (0-23)."""
+        if not self.character_config:
+            return 8 # Default 8 AM
+        return self.character_config.get("current_time", 8)
 
     def update_stats(self, affection_delta=0, energy_delta=0):
         """Updates character stats."""

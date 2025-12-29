@@ -23,7 +23,7 @@ class WaifuAI:
         self.system_prompt = ""
         self.lorebook = {}
 
-    def set_persona(self, name, description, scenario, example_dialogue, user_name="User", lorebook=None, past_events=None, stats=None, location="Home"):
+    def set_persona(self, name, description, scenario, example_dialogue, user_name="User", lorebook=None, past_events=None, stats=None, location="Home", current_time_str=None):
         self.lorebook = lorebook or {}
         
         # Format past events (diary entries)
@@ -40,7 +40,10 @@ class WaifuAI:
         
         # Inject current time
         from datetime import datetime
-        current_time = datetime.now().strftime("%Y-%m-%d %I:%M %p")
+        if current_time_str:
+            current_time = current_time_str
+        else:
+            current_time = datetime.now().strftime("%Y-%m-%d %I:%M %p")
         
         self.system_prompt = f"""You are an expert actor that can fully immerse yourself into any role given. You do not break character for any reason.
 Currently your role is {name}, which is described in detail below.

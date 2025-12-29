@@ -64,6 +64,17 @@ The app is now a lightweight Life Sim!
     *   Real-time clock awareness.
     *   **"Wait 1 Hour"**: Button to advance time and restore Energy.
 
+## 🎨 Update 1.4: The Immersion Update
+Focusing on visuals and atmosphere to pull you deeper into the world.
+*   **Dynamic Backgrounds**:
+    *   Map different images to different locations (e.g., a cozy room for "Home", a sunny park for "Park").
+    *   Backgrounds switch instantly when you travel.
+*   **True Time System**:
+    *   A 24-hour clock tracks the day (00:00 - 23:00).
+    *   **Day/Night Cycle**: The app's visual atmosphere changes automatically based on the time (Morning glow, Day clear, Sunset orange, Night dark).
+*   **Enhanced Editor**:
+    *   New tools to easily upload and assign backgrounds to specific locations.
+
 ---
 
 ## 🚀 Installation (Windows)

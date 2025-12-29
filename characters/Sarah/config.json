@@ -9,5 +9,10 @@
         "sad": "😢",
         "angry": "😠",
         "flustered": "😳"
-    }
+    },
+    "stats": {
+        "affection": 0,
+        "energy": 96
+    },
+    "current_location": "Home"
 }

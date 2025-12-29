@@ -180,6 +180,21 @@ if "user_persona" not in st.session_state:
 
 # Background Injection
 bg_image = st.session_state.char_mgr.get_background_image()
+current_hour = st.session_state.char_mgr.get_time()
+
+# Determine Time Overlay
+# Default (Day)
+overlay_color = "rgba(0, 0, 0, 0.5)" 
+
+if 5 <= current_hour < 8: # Dawn
+    overlay_color = "rgba(255, 200, 150, 0.4)"
+elif 8 <= current_hour < 17: # Day
+    overlay_color = "rgba(0, 0, 0, 0.3)"
+elif 17 <= current_hour < 20: # Sunset
+    overlay_color = "rgba(255, 100, 50, 0.3)"
+else: # Night
+    overlay_color = "rgba(10, 10, 40, 0.85)"
+
 if bg_image:
     # Convert local path to a format we can display (base64 is safest for local files in streamlit)
     import base64
@@ -194,15 +209,19 @@ if bg_image:
         f"""
         <style>
         .stApp {{
-            background-image: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url("data:image/png;base64,{bg_base64}");
+            background-image: linear-gradient({overlay_color}, {overlay_color}), url("data:image/png;base64,{bg_base64}");
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
+            transition: background-image 1s ease-in-out;
         }}
         </style>
         """,
         unsafe_allow_html=True
     )
+else:
+    # No image, just use color overlay on default dark theme
+    pass
 
 # Sidebar - Settings
 with st.sidebar:
@@ -244,7 +263,12 @@ with st.sidebar:
                 config["description"], 
                 config["scenario"], 
                 config["example_dialogue"],
-                user_name=st.session_state.user_persona["name"]
+                user_name=st.session_state.user_persona["name"],
+                lorebook=config.get("lorebook", {}),
+                past_events=st.session_state.char_mgr.get_recent_diary_entries(),
+                stats=st.session_state.char_mgr.get_stats(),
+                location=st.session_state.char_mgr.get_location(),
+                current_time_str=f"{st.session_state.char_mgr.get_time()}:00"
             )
         st.rerun()
 
@@ -280,17 +304,47 @@ with st.sidebar:
                 edit_map_str = st.text_area("Avatar Map (JSON)", value=current_map_str, height=150)
                 
                 # Image Upload
-                st.subheader("🖼️ Upload Images")
-                uploaded_file = st.file_uploader("Upload Avatar or Background", type=["png", "jpg", "jpeg"])
-                if uploaded_file:
+                st.subheader("🖼️ Images & Backgrounds")
+                
+                # 1. Default Background
+                edit_bg = st.text_input("Default Background (Filename)", value=current_config.get("background_image", ""))
+                
+                # 2. Location Backgrounds
+                st.caption("📍 Location Specific Backgrounds")
+                loc_map = current_config.get("location_images", {})
+                loc_list = ["Home", "Park", "Cafe", "Beach", "School", "Dungeon"]
+                
+                col_l1, col_l2 = st.columns([2, 1])
+                selected_loc_bg = col_l1.selectbox("Select Location", loc_list)
+                current_loc_img = loc_map.get(selected_loc_bg, "")
+                
+                new_loc_img = col_l1.text_input(f"Image for {selected_loc_bg}", value=current_loc_img)
+                if col_l2.button("Update Loc"):
+                    st.session_state.char_mgr.set_location_image(selected_loc_bg, new_loc_img)
+                    st.success(f"Updated {selected_loc_bg}")
+                    st.rerun()
+
+                # 3. Uploader
+                st.markdown("---")
+                uploaded_file = st.file_uploader("Upload New Image", type=["png", "jpg", "jpeg"])
+                target_use = st.radio("Auto-assign upload to:", ["None (Just Save)", "Default Background", f"Location: {selected_loc_bg}"], horizontal=True)
+
+                if uploaded_file and st.button("Save Upload"):
                     file_name = uploaded_file.name
                     saved_path = st.session_state.char_mgr.save_image(edit_name, uploaded_file, file_name)
                     st.success(f"Saved to {saved_path}")
-                    st.info("Copy this filename into your Avatar Map JSON above!")
-                
-                edit_bg = st.text_input("Background Image (Filename in avatars folder)", value=current_config.get("background_image", ""))
+                    
+                    if target_use.startswith("Location"):
+                        st.session_state.char_mgr.set_location_image(selected_loc_bg, file_name)
+                        st.success(f"Set as background for {selected_loc_bg}")
+                        st.rerun()
+                    elif target_use == "Default Background":
+                        # We can't update the text input variable directly in this run, 
+                        # but we can update the config if we save. 
+                        # For now, let's just show the name.
+                        st.info(f"File saved. Enter '{file_name}' in the Default Background field above.")
 
-                if st.button("Save Changes"):
+                if st.button("Save All Changes"):
                     try:
                         new_map = json.loads(edit_map_str)
                         new_config = {
@@ -317,7 +371,8 @@ with st.sidebar:
                                  lorebook=new_config.get("lorebook", {}),
                                  past_events=st.session_state.char_mgr.get_recent_diary_entries(),
                                  stats=st.session_state.char_mgr.get_stats(),
-                                 location=st.session_state.char_mgr.get_location()
+                                 location=st.session_state.char_mgr.get_location(),
+                                 current_time_str=f"{st.session_state.char_mgr.get_time()}:00"
                              )
                         st.rerun()
                     except json.JSONDecodeError:
@@ -513,10 +568,24 @@ with st.sidebar:
         
     # Time Control
     st.subheader("🕰️ Time")
+    
+    current_time_int = st.session_state.char_mgr.get_time()
+    
+    # Format nicely (08:00 AM)
+    am_pm = "AM" if current_time_int < 12 else "PM"
+    disp_hour = current_time_int if current_time_int <= 12 else current_time_int - 12
+    if disp_hour == 0: disp_hour = 12
+    
+    st.write(f"**Clock: {disp_hour}:00 {am_pm}**")
+    
     if st.button("Wait 1 Hour (+Energy)"):
+        # Advance time
+        new_time = (current_time_int + 1) % 24
+        st.session_state.char_mgr.set_time(new_time)
+        
         # Restore energy
         st.session_state.char_mgr.update_stats(energy_delta=10)
-        st.success("You rested for a while.")
+        st.success("Time passes...")
         time.sleep(0.5)
         st.rerun()
     
@@ -563,7 +632,8 @@ with col2:
                         lorebook=config.get("lorebook", {}),
                         past_events=st.session_state.char_mgr.get_recent_diary_entries(),
                         stats=st.session_state.char_mgr.get_stats(),
-                        location=st.session_state.char_mgr.get_location()
+                        location=st.session_state.char_mgr.get_location(),
+                        current_time_str=f"{st.session_state.char_mgr.get_time()}:00"
                     )
                     st.success("Connected!")
                     st.rerun()
