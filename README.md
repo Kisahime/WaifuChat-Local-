@@ -75,6 +75,18 @@ Focusing on visuals and atmosphere to pull you deeper into the world.
 *   **Enhanced Editor**:
     *   New tools to easily upload and assign backgrounds to specific locations.
 
+## 💾 Update 1.5: The "Memory & Management" Update
+Refining the user experience with better tools to manage your AI's data.
+*   **Diary Editor**:
+    *   You can now **Edit** or **Delete** specific diary entries to fix incorrect memories.
+*   **Character Export**:
+    *   Easily backup your character (including images and memories) to a ZIP file for safe keeping or sharing.
+*   **"Brain Scan" Debugger**:
+    *   A new tool for power users to see exactly what the AI is "thinking" (the raw prompt sent to the model).
+*   **New Interactions**:
+    *   **Give Gifts**: Give items like Coffee or Flowers to boost affection.
+    *   **"Let Her Speak"**: A button to let the AI continue talking without you interrupting.
+
 ---
 
 ## 🚀 Installation (Windows)

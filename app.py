@@ -406,16 +406,54 @@ with st.sidebar:
                 else:
                     st.caption("No lore entries yet.")
             
-                # --- Diary (Read Only in Editor) ---
+                # --- Diary (Editable) ---
                 st.divider()
                 st.subheader("📔 Diary Memories")
                 diary_entries = st.session_state.char_mgr.get_all_diary_entries()
+                
                 if diary_entries:
-                    for entry in diary_entries:
+                    for i, entry in enumerate(diary_entries):
                         with st.expander(f"{entry['date']}"):
-                            st.write(entry['content'])
+                            # We use a form to avoid instant reloads on typing
+                            with st.form(key=f"diary_edit_{i}"):
+                                new_content = st.text_area("Content", value=entry['content'], height=100)
+                                c_del, c_save = st.columns([1, 1])
+                                delete = c_del.form_submit_button("Delete Entry")
+                                save = c_save.form_submit_button("Update Entry")
+                                
+                                if delete:
+                                    # Remove this entry
+                                    diary_entries.pop(i)
+                                    st.session_state.char_mgr.save_diary(diary_entries)
+                                    st.success("Deleted!")
+                                    st.rerun()
+                                    
+                                if save:
+                                    # Update content
+                                    entry['content'] = new_content
+                                    # Diary entries is a reference to the list, so this updates it
+                                    st.session_state.char_mgr.save_diary(diary_entries)
+                                    st.success("Updated!")
+                                    st.rerun()
                 else:
                     st.caption("No diary entries yet.")
+                    
+                # --- Export ---
+                st.divider()
+                st.subheader("📦 Export")
+                if st.button("Export Character Package"):
+                    zip_path = st.session_state.char_mgr.export_character(edit_name)
+                    if zip_path:
+                        with open(zip_path, "rb") as fp:
+                             btn = st.download_button(
+                                 label="Download ZIP",
+                                 data=fp,
+                                 file_name=zip_path,
+                                 mime="application/zip"
+                             )
+                        st.success(f"Ready to download {zip_path}")
+                    else:
+                        st.error("Export failed.")
         
         else: # Create New
             new_char_name = st.text_input("New Character Name")
@@ -510,6 +548,12 @@ with st.sidebar:
     min_p = st.slider("Min-P", 0.0, 1.0, 0.05)
     top_k = st.slider("Top-K", 0, 100, 40)
     
+    with st.expander("🧠 Brain Scan (Debug)"):
+        if st.session_state.waifu and st.session_state.waifu.last_prompt:
+            st.text_area("Last Raw Prompt", value=st.session_state.waifu.last_prompt, height=300)
+        else:
+            st.caption("No prompt generated yet.")
+    
     st.divider()
     st.subheader("🔊 Audio")
     st.session_state.tts_enabled = st.checkbox("Enable Voice (TTS)", value=st.session_state.tts_enabled)
@@ -552,6 +596,23 @@ with st.sidebar:
     # Energy Bar
     st.write("Energy")
     st.progress(current_stats.get("energy", 100) / 100.0)
+    
+    # Gifts
+    st.caption("🎁 Give Gift")
+    col_g1, col_g2 = st.columns([2, 1])
+    gift_map = {
+        "Coffee ☕": {"aff": 1, "nrg": 5, "msg": "You gave her a warm cup of coffee."},
+        "Flower 🌸": {"aff": 3, "nrg": 0, "msg": "You gave her a beautiful flower."},
+        "Sweet Bun 🥐": {"aff": 2, "nrg": 3, "msg": "You shared a sweet treat."},
+        "Shiny Rock 🪨": {"aff": -1, "nrg": 0, "msg": "You gave her... a rock?"}
+    }
+    selected_gift = col_g1.selectbox("Item", list(gift_map.keys()), label_visibility="collapsed")
+    if col_g2.button("Give"):
+        effect = gift_map[selected_gift]
+        st.session_state.char_mgr.update_stats(effect["aff"], effect["nrg"])
+        st.session_state.messages.append({"role": "system", "content": f"*{effect['msg']}*"})
+        st.success(f"Gave {selected_gift}")
+        st.rerun()
     
     # Location
     st.subheader("🗺️ Location")
@@ -645,6 +706,8 @@ with col2:
 
     if "editing_msg" not in st.session_state:
         st.session_state.editing_msg = None # {index: int, content: str}
+    if "should_continue" not in st.session_state:
+        st.session_state.should_continue = False
 
     # Display Chat History
     for i, message in enumerate(st.session_state.messages):
@@ -717,9 +780,17 @@ with col2:
                              st.rerun()
 
     # Chat Input Logic
+    
+    # Continue Button (centered below chat)
+    col_cont, _ = st.columns([1, 4])
+    with col_cont:
+        if st.button("🗣️ Let her speak"):
+            st.session_state.should_continue = True
+            st.rerun()
+
     user_input = st.chat_input("Say something...")
     
-    if user_input or st.session_state.should_regenerate:
+    if user_input or st.session_state.should_regenerate or st.session_state.should_continue:
         # Handle Regeneration
         if st.session_state.should_regenerate:
             # Get the last user message
@@ -730,14 +801,26 @@ with col2:
                 st.error("Cannot regenerate: No user message found to respond to.")
                 st.session_state.should_regenerate = False
                 st.stop()
+        
+        # Handle Continue
+        elif st.session_state.should_continue:
+            user_input = "(The user listens intently...)"
+            st.session_state.messages.append({"role": "system", "content": user_input})
+            # We don't display a user bubble for system messages usually, 
+            # but here we might want to show it as a small note or just rely on the next AI message.
+            # Let's show it as a system note.
+            with st.chat_message("system"):
+                st.markdown(f"*{user_input}*")
+                
         else:
             # Normal user input
             st.session_state.messages.append({"role": "user", "content": user_input})
             with st.chat_message("user"):
                 st.markdown(user_input)
 
-        # Reset flag
+        # Reset flags
         st.session_state.should_regenerate = False
+        st.session_state.should_continue = False
 
         # Generate response
         with st.chat_message("assistant"):

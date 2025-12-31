@@ -21,6 +21,7 @@ class WaifuAI:
         )
         self.history = []
         self.system_prompt = ""
+        self.last_prompt = "" # Debugging
         self.lorebook = {}
 
     def set_persona(self, name, description, scenario, example_dialogue, user_name="User", lorebook=None, past_events=None, stats=None, location="Home", current_time_str=None):
@@ -176,6 +177,9 @@ Current Date/Time: {current_time}
             
         prompt += f"<|start_header_id|>user<|end_header_id|>\n\n{user_input}<|eot_id|>"
         prompt += "<|start_header_id|>assistant<|end_header_id|>\n\n"
+
+        # Save for debugging
+        self.last_prompt = prompt
 
         # Stream the response
         stream = self.llm(

@@ -322,6 +322,68 @@ class CharacterManager:
         # Sort by date descending (newest first)
         return sorted(entries, key=lambda x: x['date'], reverse=True)
 
+    def update_diary_entry(self, index, new_content):
+        """Updates a specific diary entry."""
+        if not self.current_character:
+            return False
+            
+        char_dir = os.path.join(CHARACTERS_DIR, self.current_character)
+        diary_path = os.path.join(char_dir, "diary.json")
+        
+        if not os.path.exists(diary_path):
+            return False
+            
+        with open(diary_path, "r", encoding="utf-8") as f:
+            entries = json.load(f)
+            
+        # Entries are loaded unsorted (append order), but UI shows sorted.
+        # We need to be careful with "index". 
+        # For simplicity, we'll assume the UI passes the index relative to the *sorted* list 
+        # OR we just match by content/date? matching by content is risky if duplicates.
+        # Let's assume the UI manages the original list and passes the index of the original list.
+        # Actually, let's just rewrite the whole list if we can.
+        # Wait, get_all_diary_entries returns sorted.
+        # Let's implement a safe way: The UI should probably handle the mapping.
+        # Better: Pass the original entry object to identify it?
+        # Let's just match by date and content (composite key).
+        
+        # No, let's trust the caller to handle the list. 
+        # But wait, `get_all_diary_entries` sorts it.
+        # If I change it here, I need to know which one it is.
+        # Let's add an ID to entries? Too complex for now.
+        # Let's just iterate and match.
+        
+        pass 
+        # Actually, let's implement a simpler "rewrite all" or "delete by index of raw list"
+        # but the raw list order matters.
+        # Let's change the strategy: The UI will get the full list, modify it, and save the full list.
+        
+    def save_diary(self, entries):
+        """Overwrites the diary with new entries."""
+        if not self.current_character:
+            return False
+            
+        char_dir = os.path.join(CHARACTERS_DIR, self.current_character)
+        diary_path = os.path.join(char_dir, "diary.json")
+        
+        with open(diary_path, "w", encoding="utf-8") as f:
+            json.dump(entries, f, indent=2, ensure_ascii=False)
+        return True
+
+    def export_character(self, name):
+        """Zips the character folder for export."""
+        import shutil
+        
+        char_dir = os.path.join(CHARACTERS_DIR, name)
+        if not os.path.exists(char_dir):
+            return None
+            
+        # Create a temporary zip
+        output_filename = f"{name}_export"
+        shutil.make_archive(output_filename, 'zip', char_dir)
+        
+        return output_filename + ".zip"
+
     def import_character_card(self, file_obj):
         """Imports a V2 Character Card (PNG) or JSON."""
         from PIL import Image
