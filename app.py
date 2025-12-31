@@ -7,6 +7,8 @@ import json
 from brain import WaifuAI
 from character_manager import CharacterManager
 from voice_manager import VoiceManager
+from vision_manager import VisionManager
+from hearing_manager import HearingManager
 
 # Suppress Windows Error 6 on Ctrl+C
 def signal_handler(sig, frame):
@@ -162,6 +164,10 @@ if "char_mgr" not in st.session_state:
     st.session_state.char_mgr = CharacterManager()
 if "voice_mgr" not in st.session_state:
     st.session_state.voice_mgr = VoiceManager()
+if "vision_mgr" not in st.session_state:
+    st.session_state.vision_mgr = VisionManager()
+if "hearing_mgr" not in st.session_state:
+    st.session_state.hearing_mgr = HearingManager()
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "current_char" not in st.session_state:
@@ -270,6 +276,14 @@ with st.sidebar:
                 location=st.session_state.char_mgr.get_location(),
                 current_time_str=f"{st.session_state.char_mgr.get_time()}:00"
             )
+            
+            # Check for offline progression
+            offline_report = st.session_state.char_mgr.process_offline_time()
+            if offline_report:
+                st.toast(f"While you were gone: {offline_report}", icon="🕰️")
+                # Inject as system context so she knows what she did
+                st.session_state.messages.append({"role": "system", "content": f"*[System: While the user was away, you {offline_report}]*"})
+                
         st.rerun()
 
     # --- Character Editor ---
@@ -391,6 +405,7 @@ with st.sidebar:
                     if new_lore_key and new_lore_content:
                         st.session_state.char_mgr.update_lore_entry(new_lore_key, new_lore_content)
                         st.success(f"Added '{new_lore_key}'")
+                        time.sleep(1)
                         st.rerun()
 
                 # List Entries
@@ -426,6 +441,7 @@ with st.sidebar:
                                     diary_entries.pop(i)
                                     st.session_state.char_mgr.save_diary(diary_entries)
                                     st.success("Deleted!")
+                                    time.sleep(1)
                                     st.rerun()
                                     
                                 if save:
@@ -434,6 +450,7 @@ with st.sidebar:
                                     # Diary entries is a reference to the list, so this updates it
                                     st.session_state.char_mgr.save_diary(diary_entries)
                                     st.success("Updated!")
+                                    time.sleep(1)
                                     st.rerun()
                 else:
                     st.caption("No diary entries yet.")
@@ -522,23 +539,44 @@ with st.sidebar:
 
     # --- Diary Actions ---
     st.divider()
-    st.subheader("📔 Diary")
-    if st.button("End Day & Write Diary"):
+    st.subheader("📔 Diary & Dreams")
+    if st.button("End Day (Sleep)"):
         if st.session_state.waifu and st.session_state.messages:
-            with st.spinner("Writing diary entry..."):
+            with st.spinner("Writing diary and dreaming..."):
+                # 1. Write Diary
                 entry = st.session_state.waifu.generate_diary_entry(
                     st.session_state.current_char, 
                     st.session_state.user_persona["name"]
                 )
                 if entry:
                     st.session_state.char_mgr.save_diary_entry(entry)
-                    st.success("Diary entry written!")
-                    # Clear chat logic? Maybe just notify.
-                    st.info("The day has ended. You can clear the chat to start a new day.")
+                    st.success("Diary entry written.")
+                    
+                    # 2. Dream
+                    dream = st.session_state.waifu.generate_dream(
+                        st.session_state.current_char,
+                        entry
+                    )
+                    st.session_state.char_mgr.save_dream(dream)
+                    st.info(f"Dreamt: {dream}")
+                    
+                    # 3. Restore Energy
+                    st.session_state.char_mgr.update_stats(energy_delta=100)
+                    st.success("Energy fully restored.")
+                    
                 else:
                     st.error("Could not generate diary (history empty?)")
         else:
             st.warning("Start a conversation first.")
+            
+    # Dream Journal
+    with st.expander("🌙 Dream Journal"):
+        dreams = st.session_state.char_mgr.get_all_dreams()
+        if dreams:
+            for d in dreams:
+                st.markdown(f"**{d['date']}**: {d['content']}")
+        else:
+            st.caption("No dreams yet.")
 
     # --- Generation Settings ---
     st.divider()
@@ -612,6 +650,7 @@ with st.sidebar:
         st.session_state.char_mgr.update_stats(effect["aff"], effect["nrg"])
         st.session_state.messages.append({"role": "system", "content": f"*{effect['msg']}*"})
         st.success(f"Gave {selected_gift}")
+        time.sleep(1)
         st.rerun()
     
     # Location
@@ -696,6 +735,14 @@ with col2:
                         location=st.session_state.char_mgr.get_location(),
                         current_time_str=f"{st.session_state.char_mgr.get_time()}:00"
                     )
+                    
+                    # Check for offline progression (Initial Load)
+                    offline_report = st.session_state.char_mgr.process_offline_time()
+                    if offline_report:
+                        st.toast(f"While you were gone: {offline_report}", icon="🕰️")
+                        # Inject as system context
+                        st.session_state.messages.append({"role": "system", "content": f"*[System: While the user was away, you {offline_report}]*"})
+                        
                     st.success("Connected!")
                     st.rerun()
                 except Exception as e:
@@ -781,6 +828,61 @@ with col2:
 
     # Chat Input Logic
     
+    # Audio Input (Hearing)
+    audio_val = st.audio_input("🎤 Speak to her")
+    
+    # Logic to handle audio input
+    # We need to ensure we only transcribe NEW audio. 
+    # st.audio_input returns the buffer.
+    
+    if "last_audio_id" not in st.session_state:
+        st.session_state.last_audio_id = None
+        
+    if audio_val:
+        # Use the buffer ID or similar as a unique tracker? 
+        # Or just the object identity if it changes?
+        # Streamlit re-creates the object on new recording.
+        
+        if audio_val != st.session_state.last_audio_id:
+            with st.spinner("Listening..."):
+                transcribed_text = st.session_state.hearing_mgr.transcribe(audio_val)
+                if transcribed_text:
+                    # Treat as user input
+                    # We inject it into the chat logic below by setting a temporary variable
+                    # that overrides the text input
+                    st.session_state.audio_transcription = transcribed_text
+                    st.session_state.last_audio_id = audio_val
+                    st.rerun()
+    
+    # Image Input (Vision)
+    with st.expander("📷 Show her something (Send Image)"):
+        uploaded_vision_image = st.file_uploader("Upload Image", type=["png", "jpg", "jpeg"], key="vision_uploader")
+        if uploaded_vision_image and st.button("Send Image"):
+            with st.spinner("Analyzing image..."):
+                from PIL import Image
+                image = Image.open(uploaded_vision_image)
+                
+                # 1. Get Caption
+                caption = st.session_state.vision_mgr.caption_image(image)
+                
+                # 2. Add to chat as user message with special formatting
+                user_msg_content = f"[User showed an image: {caption}]"
+                
+                # 3. Append to history
+                st.session_state.messages.append({"role": "user", "content": user_msg_content})
+                
+                # 4. Display immediately (we can't easily show the image inside the chat bubble in this loop, 
+                # but we can show the text representation. 
+                # Ideally, we'd store the image data in the message to render it, 
+                # but for now text is enough for the AI.)
+                
+                # Let's try to store a small thumbnail or base64 if we want to render it later.
+                # For now, let's just trigger the response.
+                st.success(f"Sent: {caption}")
+                st.session_state.should_regenerate = False # Ensure we don't regen previous
+                # Rerun to show the new message and trigger AI
+                st.rerun()
+
     # Continue Button (centered below chat)
     col_cont, _ = st.columns([1, 4])
     with col_cont:
@@ -788,9 +890,15 @@ with col2:
             st.session_state.should_continue = True
             st.rerun()
 
-    user_input = st.chat_input("Say something...")
+    if "audio_transcription" in st.session_state and st.session_state.audio_transcription:
+        # Override user input with transcription
+        user_input = st.session_state.audio_transcription
+        # Clear it so we don't loop
+        del st.session_state.audio_transcription
+    else:
+        user_input = st.chat_input("Say something...")
     
-    if user_input or st.session_state.should_regenerate or st.session_state.should_continue:
+    if user_input or st.session_state.should_regenerate or st.session_state.should_continue or (st.session_state.messages and st.session_state.messages[-1]["content"].startswith("[User showed an image:")):
         # Handle Regeneration
         if st.session_state.should_regenerate:
             # Get the last user message
@@ -804,16 +912,36 @@ with col2:
         
         # Handle Continue
         elif st.session_state.should_continue:
+            # We treat this as a system push
+            # But we need to trick the 'user' input logic or just skip to generation
+            # Actually, the logic below expects a user message to be appended if we are not regenerating.
+            # So we append a system note disguised as user role for the prompt? 
+            # Or better: We append a system message, and then the AI responds to the history.
+            
             user_input = "(The user listens intently...)"
+            # Note: We used to append this to messages, but the logic below 
+            # `if user_input or ...` enters this block.
+            
+            # If we just appended it in the button click, we wouldn't need this block.
+            # But the button click just sets the flag and reruns.
+            
             st.session_state.messages.append({"role": "system", "content": user_input})
-            # We don't display a user bubble for system messages usually, 
-            # but here we might want to show it as a small note or just rely on the next AI message.
-            # Let's show it as a system note.
             with st.chat_message("system"):
                 st.markdown(f"*{user_input}*")
                 
+        elif st.session_state.messages and st.session_state.messages[-1]["content"].startswith("[User showed an image:"):
+             # Image was just sent, so we don't need to append anything new.
+             # Just set user_input to the image caption for context if needed, 
+             # but the loop below uses history anyway.
+             user_input = st.session_state.messages[-1]["content"]
+             pass
+                
         else:
-            # Normal user input
+            # Normal user input (Text)
+            # Only append if it wasn't an image send (which appends its own message)
+            # Wait, if we sent an image, `user_input` (chat_input) is likely None.
+            # So we only enter here if `user_input` is NOT None.
+            
             st.session_state.messages.append({"role": "user", "content": user_input})
             with st.chat_message("user"):
                 st.markdown(user_input)

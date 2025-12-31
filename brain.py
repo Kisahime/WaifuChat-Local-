@@ -123,6 +123,26 @@ Current Date/Time: {current_time}
         
         return output['choices'][0]['text'].strip()
 
+    def generate_dream(self, character_name, diary_entry):
+        """Generates a dream based on the day's diary entry."""
+        if not diary_entry:
+            return "I slept soundly without dreams."
+            
+        prompt = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
+        prompt += f"You are {character_name}. You are currently asleep and dreaming. Based on your diary entry from today, generate a short, surreal, or reflective dream sequence (3-4 sentences). It should be abstract and emotional. Use *italics* for the dream text.<|eot_id|>"
+        
+        prompt += f"<|start_header_id|>user<|end_header_id|>\n\nDiary Entry: {diary_entry}\n\nWhat do you dream about?<|eot_id|>"
+        prompt += "<|start_header_id|>assistant<|end_header_id|>\n\n"
+        
+        output = self.llm(
+            prompt,
+            max_tokens=200,
+            stop=["<|eot_id|>"],
+            temperature=1.2 # High temp for creativity
+        )
+        
+        return output['choices'][0]['text'].strip()
+
     def _get_active_lore(self, user_input):
         """Scans input and recent history for lorebook keywords."""
         if not self.lorebook:

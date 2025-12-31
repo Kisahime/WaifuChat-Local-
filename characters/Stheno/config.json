@@ -9,5 +9,10 @@
         "sad": "😞",
         "angry": "🐍",
         "annoyed": "🙄"
-    }
+    },
+    "stats": {
+        "affection": 3,
+        "energy": 94
+    },
+    "last_active": 1767199720.878207
 }

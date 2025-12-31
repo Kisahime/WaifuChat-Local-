@@ -217,8 +217,76 @@ class CharacterManager:
         stats["affection"] = max(0, min(100, stats.get("affection", 0) + affection_delta))
         stats["energy"] = max(0, min(100, stats.get("energy", 100) + energy_delta))
         
+        # Update last active timestamp
+        self.character_config["last_active"] = datetime.now().timestamp()
+        
         self.save_character(self.current_character, self.character_config)
         return stats
+
+    def get_last_active(self):
+        """Returns the timestamp of when the character was last active."""
+        if not self.character_config:
+            return None
+        return self.character_config.get("last_active", None)
+
+    def process_offline_time(self):
+        """Calculates what happened while offline. Returns a summary string or None."""
+        last_active = self.get_last_active()
+        if not last_active:
+            # First time setup, just set timestamp
+            self.update_stats(0, 0)
+            return None
+            
+        now = datetime.now().timestamp()
+        diff_hours = (now - last_active) / 3600.0
+        
+        if diff_hours < 1.0:
+            return None # Too short to do anything
+            
+        # Simulation Logic
+        # 1 hour = -5 Energy (Living cost)
+        # If Energy < 20, she sleeps (+50 Energy)
+        # Random activities if Energy > 30
+        
+        summary = []
+        energy_change = 0
+        affection_change = 0
+        
+        # Cap offline time at 12 hours to prevent weird massive changes
+        sim_hours = min(diff_hours, 12)
+        
+        import random
+        
+        # Simple Simulation
+        if sim_hours > 8:
+            # Long absence (Sleep)
+            energy_change += 80
+            summary.append(f"She slept for a long time while you were gone ({int(sim_hours)}h).")
+        else:
+            # Short absence
+            energy_loss = int(sim_hours * 5)
+            energy_change -= energy_loss
+            
+            # Activities
+            activities = [
+                "read a book", "cleaned the room", "listened to music", 
+                "practiced cooking", "stared out the window", "wrote a poem"
+            ]
+            
+            # 50% chance to do an activity
+            if random.random() > 0.5:
+                act = random.choice(activities)
+                summary.append(f"She {act} while you were away ({int(sim_hours)}h).")
+                # Some activities boost affection slightly (self-improvement)
+                if random.random() > 0.7:
+                    affection_change += 1
+            else:
+                 summary.append(f"She waited for you ({int(sim_hours)}h).")
+
+        # Apply changes
+        self.update_stats(affection_change, energy_change)
+        
+        return " ".join(summary)
 
     def get_stats(self):
         if not self.character_config:
@@ -322,42 +390,45 @@ class CharacterManager:
         # Sort by date descending (newest first)
         return sorted(entries, key=lambda x: x['date'], reverse=True)
 
-    def update_diary_entry(self, index, new_content):
-        """Updates a specific diary entry."""
+    def save_dream(self, dream_text):
+        """Saves a dream entry."""
         if not self.current_character:
             return False
             
         char_dir = os.path.join(CHARACTERS_DIR, self.current_character)
-        diary_path = os.path.join(char_dir, "diary.json")
+        dream_path = os.path.join(char_dir, "dreams.json")
         
-        if not os.path.exists(diary_path):
-            return False
+        dreams = []
+        if os.path.exists(dream_path):
+            with open(dream_path, "r", encoding="utf-8") as f:
+                dreams = json.load(f)
+                
+        new_dream = {
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "content": dream_text
+        }
+        dreams.append(new_dream)
+        
+        with open(dream_path, "w", encoding="utf-8") as f:
+            json.dump(dreams, f, indent=2, ensure_ascii=False)
+        return True
+
+    def get_all_dreams(self):
+        """Returns all dreams."""
+        if not self.current_character:
+            return []
             
-        with open(diary_path, "r", encoding="utf-8") as f:
-            entries = json.load(f)
+        char_dir = os.path.join(CHARACTERS_DIR, self.current_character)
+        dream_path = os.path.join(char_dir, "dreams.json")
+        
+        if not os.path.exists(dream_path):
+            return []
             
-        # Entries are loaded unsorted (append order), but UI shows sorted.
-        # We need to be careful with "index". 
-        # For simplicity, we'll assume the UI passes the index relative to the *sorted* list 
-        # OR we just match by content/date? matching by content is risky if duplicates.
-        # Let's assume the UI manages the original list and passes the index of the original list.
-        # Actually, let's just rewrite the whole list if we can.
-        # Wait, get_all_diary_entries returns sorted.
-        # Let's implement a safe way: The UI should probably handle the mapping.
-        # Better: Pass the original entry object to identify it?
-        # Let's just match by date and content (composite key).
-        
-        # No, let's trust the caller to handle the list. 
-        # But wait, `get_all_diary_entries` sorts it.
-        # If I change it here, I need to know which one it is.
-        # Let's add an ID to entries? Too complex for now.
-        # Let's just iterate and match.
-        
-        pass 
-        # Actually, let's implement a simpler "rewrite all" or "delete by index of raw list"
-        # but the raw list order matters.
-        # Let's change the strategy: The UI will get the full list, modify it, and save the full list.
-        
+        with open(dream_path, "r", encoding="utf-8") as f:
+            dreams = json.load(f)
+            
+        return sorted(dreams, key=lambda x: x['date'], reverse=True)
+
     def save_diary(self, entries):
         """Overwrites the diary with new entries."""
         if not self.current_character:

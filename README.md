@@ -80,12 +80,41 @@ Refining the user experience with better tools to manage your AI's data.
 *   **Diary Editor**:
     *   You can now **Edit** or **Delete** specific diary entries to fix incorrect memories.
 *   **Character Export**:
-    *   Easily backup your character (including images and memories) to a ZIP file for safe keeping or sharing.
+    *   Easily back up your character (including images and memories) to a ZIP file for safekeeping or sharing.
 *   **"Brain Scan" Debugger**:
     *   A new tool for power users to see exactly what the AI is "thinking" (the raw prompt sent to the model).
 *   **New Interactions**:
     *   **Give Gifts**: Give items like Coffee or Flowers to boost affection.
     *   **"Let Her Speak"**: A button to let the AI continue talking without you interrupting.
+
+## 👁️ Update 2.0 (Phase 1): Sight
+The first step towards a fully multimodal AI.
+*   **Visual Perception**:
+    *   **"Show her something"**: Upload an image in the chat.
+    *   **Image Captioning**: The app uses the BLIP AI model to "see" the image and convert it into a description (e.g., "User showed an image: a small cat sleeping on a laptop").
+    *   **Reaction**: The character reacts to what she sees in character!
+
+## 👂 Update 2.0 (Phase 2): Hearing
+Now you can talk to her directly!
+*   **Voice Input**:
+    *   Uses **OpenAI Whisper** (Local Base Model) for high-accuracy speech-to-text.
+    *   Click the microphone icon 🎤, record your message, and it will be transcribed instantly.
+    *   Works completely offline.
+
+## 🌙 Update 2.0 (Phase 3): The Inner World
+The AI now has a subconscious.
+*   **Dream System**:
+    *   When you click **"End Day (Sleep)"**, the AI reflects on the day's diary entry and generates a dream.
+    *   Dreams are abstract, emotional, and sometimes surreal.
+    *   **Dream Journal**: Read her past dreams in the "Memory" sidebar.
+
+## 🕰️ Update 2.0 (Phase 4): Autonomous Life
+She lives her own life when you're not around.
+*   **Offline Simulation**:
+    *   The app calculates how much time has passed since you last chatted.
+    *   **Activities**: She might read a book, clean her room, sleep, or practice cooking while you are away.
+    *   **Stat Changes**: Being away too long might drain her energy (if she stayed up waiting) or restore it (if she slept).
+*   **Welcome Back**: When you log in, you'll see a toast notification telling you what she did, and she will know it too!
 
 ---
 
